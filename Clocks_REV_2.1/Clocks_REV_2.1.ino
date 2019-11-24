@@ -1,5 +1,6 @@
 #include <avr/power.h>
 #include <avr/sleep.h>
+#include <avr/interrupt.h>
 
 int MinL = 0, MinR= 0, HrsL = 0, HrsR = 0;
 int rght = 3, lft = 4;
@@ -10,16 +11,31 @@ int TmShw = 0;
 int val=0;                      
 boolean flag=0; 
 int btn = 0;
-int twosec = 0; 
-
+int sec = 0; 
+bool A = true;
+int prval = 2;
+bool slp = false;
 
 
 
 void setup() {
   TCCR2A = 0x00; 
-  TCCR2B = 0x05; 
-  TIMSK2 = 0x01; 
-  ASSR = 0x20; 
+  TCCR2B |= (1<<CS22) | (1<<CS21) | (1<<CS20);
+  TIMSK2 = 0x01;   
+  ASSR = (1<<EXCLK);
+  ASSR = (1<<AS2);
+
+  /*cli();
+  TIMSK2 &= ~((1<<OCIE2A)|(1<<OCIE2B)|(1<<TOIE2));
+  ASSR = (1<<AS2);
+  delay(2000);
+  TCNT2 = 0;
+  TCCR2B |= (1<<CS22) | (1<<CS20);
+  while(ASSR & 0x1F);
+  TIFR2 |= ((1<<OCF2A)|(1<<OCF2B)|(1<<TOV2));
+  TIMSK2 |= (1<<TOIE2);
+  sei();*/
+
   ADCSRA &= ~(1 << ADEN); 
   power_usart0_disable();
   power_twi_disable();  
@@ -35,8 +51,12 @@ void setup() {
   pinMode(18, OUTPUT); 
   pinMode(16, OUTPUT); 
   pinMode(0, OUTPUT);  
+
+  pinMode(13, INPUT); 
+  digitalWrite(13, LOW);  
   set_sleep_mode(SLEEP_MODE_PWR_SAVE);
-  sleep_mode();
+  sleep_enable();
+  sleep_mode(); 
 }
 
 void tabl(int numr = 0){ 
@@ -105,8 +125,8 @@ void tabl(int numr = 0){
 }
 
 ISR(TIMER2_OVF_vect){
-    twosec  += 1;
-    if(twosec == 60){  
+    sec  += 4;
+    if(sec >= 60){       
       MinR++;
       if(MinR == 10) {
         MinR = 0;
@@ -125,8 +145,11 @@ ISR(TIMER2_OVF_vect){
         HrsR = 0;
       }
       TmUpdt = false;   
-      twosec = 0;
-    }  
+      sec -= 60;
+    }    
+      if(val == 0 && btn == 0){
+        slp = true;
+    }
 }
 
 void HOURS(int a = 0){
@@ -160,24 +183,37 @@ void MINUTES(int a = 0){
     }         
   }  
 
-void ButInter(){
-    btn++;
+void ButInter(){    
+    btn++;   
   }
 
-void loop() {
-  if(btn > 0 && btn <= 2){
-    btn = 0;
-    val++;    
-    delay(7500);     
-  }
-  if(btn >= 3 && btn <= 50){
+void loop() { 
+  if(slp){     
+    sleep_mode();
+    slp = false;
+  }  
+   if(btn == 1){
+    if(digitalRead(13) == 1 && A == true){
+      val++;
+      A = false;
+      delay(2000);
+    }   
     val++;  
-    btn = 0;   
-  }
+    btn = 0;     
+  } 
+  if(val >= 2){
+    if(digitalRead(2) == 1)
+      val++;
+    }
+  if(prval < val){
+    prval = val;
+    delay(1000);
+    }
   
   if(val == 1){
     TmShw = 1;
     val = 0;
+    btn = 0;    
   }
   if(val >= 2){
     TmShw = 2;
@@ -194,13 +230,13 @@ void loop() {
       digitalWrite(rght, HIGH);
       for(int p = 0; p < 10; p++){
         tabl(p); 
-        delay(250); 
+        delay(200); 
       }    
       digitalWrite(rght, LOW);           
       digitalWrite(lft, HIGH);
       for(int p = 0; p < 10; p++){
         tabl(p); 
-        delay(250); 
+        delay(200); 
       }
       digitalWrite(lft, LOW);       
     }       
@@ -244,8 +280,9 @@ void loop() {
       TmShw = 0;  
       Chk = false;  
       val = 0;  
-      btn = 0; 
-      sleep_mode();     
+      btn = 0;  
+      A = true;
+      sleep_mode();
     }       
   } 
 
@@ -260,8 +297,8 @@ void loop() {
     digitalWrite(0, LOW); 
     TmShw = 0; 
     Chk = false; 
-    btn = 0;
-    sleep_mode();         
+    btn = 0; 
+    sleep_mode();      
     }    
   }
 } 
