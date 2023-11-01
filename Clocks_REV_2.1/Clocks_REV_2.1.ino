@@ -125,8 +125,8 @@ void tabl(int numr = 0){
 }
 
 ISR(TIMER2_OVF_vect){
-    sec  += 4;
-    if(sec >= 60){       
+    sec  += 400;
+    if(sec >= 6000){       
       MinR++;
       if(MinR == 10) {
         MinR = 0;
@@ -145,7 +145,7 @@ ISR(TIMER2_OVF_vect){
         HrsR = 0;
       }
       TmUpdt = false;   
-      sec -= 60;
+      sec -= 5990;
     }    
       if(val == 0 && btn == 0){
         slp = true;
